@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "^5.0.1",
+    "bcryptjs": "^2.4.3",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
@@ -25,6 +25,7 @@
     "nodemon": "^2.0.20",
     "query-string": "^7.1.1",
     "slugify": "^1.6.5",
-    "uid": "^2.0.1"
+    "uid": "^2.0.1",
+    "validator": "^13.7.0"
   }
 }
