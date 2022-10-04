@@ -112,7 +112,7 @@ userSchema.methods.generateConfirmationToken = function () {
 
   const date = new Date();
 
-  date.setDate(date.getDate() + 1);
+  date.setDate(date.getDate() + 7);
   this.confirmationTokenExpires = date;
 
   return token;

@@ -1,23 +1,15 @@
-// const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 
+exports.generateToken = (userInfo) => {
+  const payload = {
+    email: userInfo.email,
+    role: userInfo.role,
+  };
 
-// exports.hashPassword = (password) => {
-//   return new Promise((resolve, reject) => {
-//     bcrypt.genSalt(12, (err, salt) => {
-//       if (err) {
-//         reject(err);
-//       }
-//       bcrypt.hash(password, salt, (err, hash) => {
-//         if (err) {
-//           reject(err);
-//         }
-//         resolve(hash);
-//       });
-//     });
-//   });
-// };
+  const token = jwt.sign(payload, process.env.TOKEN_SECRET, {
+    expiresIn: "7days"
+  });
 
-// exports.comparePassword = (password, hashed) => {
-//   return bcrypt.compare(password, hashed); // boolean
-// };
+  return token;
+};

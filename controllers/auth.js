@@ -1,69 +1,84 @@
-const User=require("../models/user");
-const{ hashPassword, comparePassword } =require("../helpers/auth");
-const jwt =require("jsonwebtoken");
-const { uid } =require("uid");
+const { signupService, findUserByEmail, findUserByToken } = require("../services/auth");
+const { generateToken } = require("../helpers/auth");
+
 
 exports.register = async (req, res) => {
   try {
-    // console.log(req.body);
-    const { name, email, password } = req.body;
-    // validation
-    if (!name) return res.status(400).send("Name is required");
-    if (!password || password.length < 6) {
-      return res
-        .status(400)
-        .send("Password is required and should be min 6 characters long");
-    }
-    let userExist = await User.findOne({ email }).exec();
-    if (userExist) return res.status(400).send("Email is taken");
+    const user = await signupService(req.body);
 
-    // hash password
-    const hashedPassword = await hashPassword(password);
+    const token = user.generateConfirmationToken();
 
-    // register
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
+    await user.save({ validateBeforeSave: false });
+   
+    res.status(200).json({
+      status: "success",
+      message: "Successfully signed up",
     });
-    await user.save();
-    // console.log("saved user", user);
-    return res.json({ ok: true });
-  } catch (err) {
-    console.log(err);
-    return res.status(400).send("Error. Try again.");
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: "fail",
+      error,
+    });
   }
 };
 
 exports.login = async (req, res) => {
   try {
-    // console.log(req.body);
     const { email, password } = req.body;
-    // check if our db has user with that email
-    const user = await User.findOne({ email }).exec();
-    if (!user) return res.status(400).send("No user found");
-    // check password
-    const match = await comparePassword(password, user.password);
-    if (!match) return res.status(400).send("Wrong password");
 
-    // create signed jwt
-    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
+    if (!email || !password) {
+      return res.status(401).json({
+        status: "fail",
+        error: "Please provide your credentials",
+      });
+    }
+
+    const user = await findUserByEmail(email);
+
+    if (!user) {
+      return res.status(401).json({
+        status: "fail",
+        error: "No user found. Please create an account",
+      });
+    }
+
+    const isPasswordValid = user.comparePassword(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(403).json({
+        status: "fail",
+        error: "Password is not correct",
+      });
+    }
+
+    if (user.status != "active") {
+      return res.status(401).json({
+        status: "fail",
+        error: "Your account is not active yet.",
+      });
+    }
+
+    const token = generateToken(user);
+
+    const { password: pwd, ...others } = user.toObject();
+
+    res.status(200).json({
+      status: "success",
+      message: "Successfully logged in",
+      data: {
+        user: others,
+        token,
+      },
     });
-    // return user and token to client, exclude hashed password
-    user.password = undefined;
-    // send token in cookie
-    res.cookie("token", token, {
-      httpOnly: true,
-      // secure: true, // only works on https
+  } catch (error) {
+    res.status(500).json({
+      status: "fail",
+      error: error.message,
     });
-    // send user as json response
-    res.json(user);
-  } catch (err) {
-    console.log(err);
-    return res.status(400).send("Error. Try again.");
   }
 };
+
 
 exports.logout = async (req, res) => {
   try {
