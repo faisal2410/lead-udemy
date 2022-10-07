@@ -91,11 +91,14 @@ userSchema.pre("save", function (next) {
     return next();
   }
   const password = this.password;
+  const confirmPassword=this.confirmPassword
 
   const hashedPassword = bcrypt.hashSync(password);
+  const hashedConfirmPassword = bcrypt.hashSync(confirmPassword);
 
   this.password = hashedPassword;
-  this.confirmPassword = undefined;
+  // this.confirmPassword = undefined;
+  this.confirmPassword = hashedConfirmPassword;
 
   next();
 });

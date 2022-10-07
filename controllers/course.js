@@ -4,50 +4,63 @@ const Completed =require("../models/completed");
 const slugify =require("slugify");
 const { readFileSync }=require("fs");
 const User =require("../models/user");
-
-
-// const awsConfig = {
-//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//   region: process.env.AWS_REGION,
-//   apiVersion: process.env.AWS_API_VERSION,
-// };
-
-// const S3 = new AWS.S3(awsConfig);
+const multer = require('multer');
+const { findUserByEmail } = require("../services/auth");
+const { findCourseBySlug } = require("../services/course");
 
 exports.uploadImage = async (req, res) => {
-  // console.log(req.body);
+  console.log("test",req.body);
   try {
-    const { image } = req.body;
-    if (!image) return res.status(400).send("No image");
+    // const { image } = req.body;
+    // if (!image) return res.status(400).send("No image");
 
-    // prepare the image
-    const base64Data = new Buffer.from(
-      image.replace(/^data:image\/\w+;base64,/, ""),
-      "base64"
-    );
-
-    const type = image.split(";")[0].split("/")[1];
-
-    // image params
-    const params = {
-      Bucket: "edemy-bucket",
-      Key: `${uid()}.${type}`,
-      Body: base64Data,
-      ACL: "public-read",
-      ContentEncoding: "base64",
-      ContentType: `image/${type}`,
-    };
-
-    // upload to s3
-    S3.upload(params, (err, data) => {
-      if (err) {
-        console.log(err);
-        return res.sendStatus(400);
+    const storage=multer.diskStorage({
+      destination: (req,file,callBack)=> {
+          callBack(null,'public/course');
+      },
+      filename: (req,file,callBack)=> {
+          callBack(null,file.originalname)
+      }    
+      
+  });
+  const maxSize = 1 * 1024 * 1024; // for 1MB  
+  const upload=multer({
+    storage:storage,
+    fileFilter: (req, file, cb)=> {
+      if(file.mimetype==="image/jpg"||
+        file.mimetype==="image/png"||
+        file.mimetype==="image/jpeg"||
+        file.mimetype==="image/webp"      
+      ){
+        cb(null, true)
+      }else{
+        cb(null, false);
+        return cb(new Error("Only jpg, png, jpeg and webp format is allowed"))
       }
-      console.log(data);
-      res.send(data);
-    });
+    },
+    limits: { fileSize: maxSize }
+  }).array('photos', 12)
+  
+   
+    upload(req,res, (error)=> {  
+      if (error instanceof multer.MulterError) {        
+        res.status(403).json({
+          status:"Fail",
+          message:error.message
+        })
+      } else if (error) {      
+        res.status(401).json({
+          status:"Fail",
+          message:error.message
+        })
+      }    
+      else{
+          res.status(200).json({
+            status:"Success",
+            message:"File upload Success"
+          })
+      }
+});
   } catch (err) {
     console.log(err);
   }
@@ -198,13 +211,16 @@ exports.addLesson = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
+
   try {
+    const user=await findUserByEmail(req.user.email);
+    
     const { slug } = req.params;
-    // console.log(slug);
-    const course = await Course.findOne({ slug }).exec();
-    // console.log("COURSE FOUND => ", course);
-    if (req.user._id != course.instructor) {
-      return res.status(400).send("Unauthorized");
+    console.log(slug);
+    const course = await findCourseBySlug(slug)
+    // console.log("COURSE FOUND => ", course.instructor); 
+    if (String(user._id) !== String(course.instructor)) {
+      return res.status(400).send("Unauthorized.");
     }
 
     const updated = await Course.findOneAndUpdate({ slug }, req.body, {
@@ -306,7 +322,7 @@ exports.unpublishCourse = async (req, res) => {
 };
 
 exports.courses = async (req, res) => {
-  const all = await Course.find({ published: true })
+  const all = await Course.find({ published: false })
     .populate("instructor", "_id name")
     .exec();
   res.json(all);
@@ -491,5 +507,28 @@ exports.markIncomplete = async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.log(err);
+  }
+};
+
+
+exports.enrollmentWithoutStripe = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId).exec();
+ 
+    const result = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $addToSet: { courses: course._id },
+      },
+      { new: true }
+    ).exec();
+    console.log(result);
+    res.json({
+      message: "Congratulations! You have successfully enrolled",
+      course,
+    });
+  } catch (err) {
+    console.log("free enrollment err", err);
+    return res.status(400).send("Enrollment create failed");
   }
 };

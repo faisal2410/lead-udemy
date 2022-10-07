@@ -3,7 +3,8 @@ const express =require("express");
 const router = express.Router();
 
 // middleware
-const{ requireSignin } =require("../middlewares");
+const {verifyToken} =require("../middlewares/auth");
+const { isAdmin } = require("../middlewares/authorization");
 
 // controllers
 const {
@@ -16,19 +17,19 @@ const {
   instructorPayoutSettings,
 } =require("../controllers/instructor");
 
-router.post("/make-instructor", requireSignin, makeInstructor);
-router.post("/get-account-status", requireSignin, getAccountStatus);
-router.get("/current-instructor", requireSignin, currentInstructor);
+router.post("/make-instructor/:id",verifyToken,isAdmin, makeInstructor);
+// router.post("/get-account-status", verifyToken, getAccountStatus);
+router.get("/current-instructor", verifyToken, currentInstructor);
 
-router.get("/instructor-courses", requireSignin, instructorCourses);
+router.get("/instructor-courses", verifyToken, instructorCourses);
 
-router.post("/instructor/student-count", requireSignin, studentCount);
+router.post("/instructor/student-count", verifyToken, studentCount);
 
-router.get("/instructor/balance", requireSignin, instructorBalance);
+// router.get("/instructor/balance", verifyToken, instructorBalance);
 
 router.get(
   "/instructor/payout-settings",
-  requireSignin,
+  verifyToken,
   instructorPayoutSettings
 );
 

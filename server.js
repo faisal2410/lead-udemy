@@ -1,3 +1,4 @@
+const { readdirSync } = require("fs")
 const express = require('express');
 const app = express();
 const helmet = require('helmet');
@@ -6,7 +7,8 @@ require("dotenv").config();
 const colors = require("colors");
 const morgan = require("morgan");
 const cors = require('cors');
-const { readdirSync } = require("fs")
+const cookieParser =require("cookie-parser");
+
 
 
 // middlewares
@@ -16,6 +18,7 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: false }));
 app.use(morgan("dev"));
 app.use(cors());
+app.use(cookieParser());
 
 
 // DB Connection

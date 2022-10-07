@@ -3,7 +3,7 @@ const express =require("express");
 const router = express.Router();
 
 // middleware
-const { requireSignin } =require("../middlewares");
+const {verifyToken} =require("../middlewares/auth");
 
 // controllers
 const {
@@ -18,7 +18,7 @@ const {
 router.post("/register", register);
 router.post("/login", login);
 router.get("/logout", logout);
-router.get("/current-user", requireSignin, currentUser);
+router.get("/current-user", verifyToken, currentUser);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/",(req,res)=>{

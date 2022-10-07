@@ -1,4 +1,4 @@
-const { signupService, findUserByEmail, findUserByToken } = require("../services/auth");
+const { signupService, findUserByEmail,findUserById,forgotPassword,resetPassword, findUserByToken } = require("../services/auth");
 const { generateToken } = require("../helpers/auth");
 
 
@@ -59,15 +59,25 @@ exports.login = async (req, res) => {
       });
     }
 
-    const token = generateToken(user);
+    const token =generateToken(user);
 
-    const { password: pwd, ...others } = user.toObject();
+    // const { password: pwd, ...others } = user.toObject();
+     // return user and token to client, exclude hashed password
+     user.password = undefined;
+     user.confirmPassword = undefined;
+     // send token in cookie
+     res.cookie("token", token, {
+      httpOnly: true,
+      // secure: true, // only works on https
+    });
+
+     // send user as json response
 
     res.status(200).json({
       status: "success",
       message: "Successfully logged in",
       data: {
-        user: others,
+        user,
         token,
       },
     });
@@ -91,7 +101,7 @@ exports.logout = async (req, res) => {
 
 exports.currentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password").exec();
+    const user = await findUserById(req.user._id)
     console.log("CURRENT_USER", user);
     return res.json({ ok: true });
   } catch (err) {
@@ -104,10 +114,7 @@ exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
     // console.log(email);
     const shortCode = uid(6).toUpperCase();
-    const user = await User.findOneAndUpdate(
-      { email },
-      { passwordResetCode: shortCode }
-    );
+    const user = await forgotPassword(email,shortCode)
     if (!user) return res.status(400).send("User not found");
 
     // prepare for email
@@ -155,18 +162,9 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email, code, newPassword } = req.body;
     // console.table({ email, code, newPassword });
-    const hashedPassword = await hashPassword(newPassword);
+    // const hashedPassword = await hashPassword(newPassword);
 
-    const user = User.findOneAndUpdate(
-      {
-        email,
-        passwordResetCode: code,
-      },
-      {
-        password: hashedPassword,
-        passwordResetCode: "",
-      }
-    ).exec();
+    const user = await resetPassword(email,code,newPassword)
     res.json({ ok: true });
   } catch (err) {
     console.log(err);

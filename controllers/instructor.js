@@ -1,33 +1,18 @@
 const User =require("../models/user");
 const Course =require("../models/course");
 const queryString =require("query-string");
+const { findUserByRole } = require("../services/auth");
 
 
 exports.makeInstructor = async (req, res) => {
   try {
-    // 1. find user from db
-    const user = await User.findById(req.user._id).exec();
-    // 2. if user dont have stripe_account_id yet, then create new
-    if (!user.stripe_account_id) {
-      const account = await stripe.accounts.create({ type: "express" });
-      // console.log('ACCOUNT => ', account.id)
-      user.stripe_account_id = account.id;
-      user.save();
-    }
-    // 3. create account link based on account id (for frontend to complete onboarding)
-    let accountLink = await stripe.accountLinks.create({
-      account: user.stripe_account_id,
-      refresh_url: process.env.STRIPE_REDIRECT_URL,
-      return_url: process.env.STRIPE_REDIRECT_URL,
-      type: "account_onboarding",
-    });
-    //  console.log(accountLink)
-    // 4. pre-fill any info such as email (optional), then send url resposne to frontend
-    accountLink = Object.assign(accountLink, {
-      "stripe_user[email]": user.email,
-    });
-    // 5. then send the account link as response to fronend
-    res.send(`${accountLink.url}?${queryString.stringify(accountLink)}`);
+    // 1. find user from db  
+    const user = await User.updateOne({_id:req.params.id},{role:"instructor"});  
+    res.status(200).json({
+      status:`User is successfully updated as instructor`,
+      user
+    })
+   
   } catch (err) {
     console.log("MAKE INSTRUCTOR ERR ", err);
   }
@@ -60,15 +45,25 @@ exports.getAccountStatus = async (req, res) => {
 
 exports.currentInstructor = async (req, res) => {
   try {
-    let user = await User.findById(req.user._id).select("-password").exec();
-    // console.log("CURRENT INSTRUCTOR => ", user);
-    if (!user.role.includes("Instructor")) {
-      return res.sendStatus(403);
+    let user = await findUserByRole({role:req.user.role});
+    // let user = await findUserByRole({role:req.user.role}).select("-password").exec();
+    console.log("CURRENT INSTRUCTOR => ", user);
+    const test=!user.role.includes("instructor")&&!user.role.includes("admin")
+    console.log("we are testing======>",test)
+    if (!user.role.includes("instructor")&&!user.role.includes("admin")) {
+      return res.status(403).json({
+        status:"Fail",
+        message:"Access Denied. Instructor Resources"
+      });
     } else {
       res.json({ ok: true });
     }
   } catch (err) {
-    console.log(err);
+    // console.log(err);
+    res.status(403).json({
+      status:"Fail",
+      message:"Access Denied. Instructor Resources"
+    })
   }
 };
 
