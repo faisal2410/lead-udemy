@@ -2,18 +2,14 @@ const{ uid } =require("uid");
 const Course =require("../models/course");
 const Completed =require("../models/completed");
 const slugify =require("slugify");
-const { readFileSync }=require("fs");
+const { readFileSync,unlinkSync }=require("fs");
 const User =require("../models/user");
 const multer = require('multer');
 const { findUserByEmail } = require("../services/auth");
 const { findCourseBySlug } = require("../services/course");
 
 exports.uploadImage = async (req, res) => {
-  console.log("test",req.body);
   try {
-    // const { image } = req.body;
-    // if (!image) return res.status(400).send("No image");
-
     const storage=multer.diskStorage({
       destination: (req,file,callBack)=> {
           callBack(null,'public/course');
@@ -44,12 +40,12 @@ exports.uploadImage = async (req, res) => {
    
     upload(req,res, (error)=> {  
       if (error instanceof multer.MulterError) {        
-        res.status(403).json({
+        res.status(400).json({
           status:"Fail",
           message:error.message
         })
       } else if (error) {      
-        res.status(401).json({
+        res.status(400).json({
           status:"Fail",
           message:error.message
         })
@@ -62,29 +58,28 @@ exports.uploadImage = async (req, res) => {
       }
 });
   } catch (err) {
-    console.log(err);
+    res.status(400).json({
+      status:"Fail",
+      message:err.message
+    })
   }
 };
 
 exports.removeImage = async (req, res) => {
-  try {
-    const { image } = req.body;
-    // image params
-    const params = {
-      Bucket: image.Bucket,
-      Key: image.Key,
-    };
-
-    // send remove request to s3
-    S3.deleteObject(params, (err, data) => {
-      if (err) {
-        console.log(err);
-        res.sendStatus(400);
-      }
-      res.send({ ok: true });
-    });
+  // console.log("test=======>",req.body.image);
+  try {   
+    const path="public/course/attention-please.webp" //we will receive the path from front end to delete
+    unlinkSync(req.body.image);    
+    // unlinkSync(path);    
+    res.status(200).json({
+      status:"Success",
+      message:"File delete success"
+    })
   } catch (err) {
-    console.log(err);
+    res.status(400).json({
+      status:"Fail",
+      message:err.message
+    })
   }
 };
 
@@ -123,34 +118,64 @@ exports.read = async (req, res) => {
 
 exports.uploadVideo = async (req, res) => {
   try {
-    // console.log("req.user._id", req.user._id);
+    // console.log("req.user.email", req.user.email);
     // console.log("req.params.instructorId", req.params.instructorId);
-    if (req.user._id != req.params.instructorId) {
-      return res.status(400).send("Unauthorized");
+    const user=await findUserByEmail(req.user.email);
+    // console.log("user id====>",user._id)
+    
+    if (user._id != req.params.instructorId) {
+      return res.status(400).json({
+        status:"Fail",
+        message:"Unauthorized"
+
+      });
     }
 
-    const { video } = req.files;
-    // console.log(video);
-    if (!video) return res.status(400).send("No video");
-
-    // video params
-    const params = {
-      Bucket: "edemy-bucket",
-      Key: `${uid()}.${video.type.split("/")[1]}`,
-      Body: readFileSync(video.path),
-      ACL: "public-read",
-      ContentType: video.type,
-    };
-
-    // upload to s3
-    S3.upload(params, (err, data) => {
-      if (err) {
-        console.log(err);
-        res.sendStatus(400);
+    const storage=multer.diskStorage({
+      destination: (req,file,callBack)=> {
+          callBack(null,'public/course');
+      },
+      filename: (req,file,callBack)=> {
+          callBack(null,file.originalname)
+      }    
+      
+  });
+  const maxSize = 50 * 1024 * 1024; // for 1MB  
+  const upload=multer({
+    storage:storage,
+    fileFilter: (req, file, cb)=> {
+      console.log(file.mimetype)
+      if(file.mimetype==="video/mp4"){
+        cb(null, true)
+      }else{
+        cb(null, false);
+        return cb(new Error("Only video/mp4 mimetype format is allowed"))
       }
-      console.log(data);
-      res.send(data);
-    });
+    },
+    limits: { fileSize: maxSize }
+  }).array('videos', 12)
+  
+   
+    upload(req,res, (error)=> {  
+      if (error instanceof multer.MulterError) {        
+        res.status(400).json({
+          status:"Fail",
+          message:error.message
+        })
+      } else if (error) {      
+        res.status(400).json({
+          status:"Fail",
+          message:error.message
+        })
+      }    
+      else{
+          res.status(200).json({
+            status:"Success",
+            message:"Video upload Success"
+          })
+      }
+});
+
   } catch (err) {
     console.log(err);
   }
@@ -158,30 +183,31 @@ exports.uploadVideo = async (req, res) => {
 
 exports.removeVideo = async (req, res) => {
   try {
-    if (req.user._id != req.params.instructorId) {
-      return res.status(400).send("Unauthorized");
+    // console.log("req.user.email", req.user.email);
+    // console.log("req.params.instructorId", req.params.instructorId);
+    const user=await findUserByEmail(req.user.email);
+    // console.log("user id====>",user._id)
+    
+    if (user._id != req.params.instructorId) {
+      return res.status(400).json({
+        status:"Fail",
+        message:"Unauthorized"
+
+      });
     }
 
-    const { Bucket, Key } = req.body;
-    // console.log("VIDEO REMOVE =====> ", req.body);
-
-    // video params
-    const params = {
-      Bucket,
-      Key,
-    };
-
-    // upload to s3
-    S3.deleteObject(params, (err, data) => {
-      if (err) {
-        console.log(err);
-        res.sendStatus(400);
-      }
-      console.log(data);
-      res.send({ ok: true });
-    });
+    const path="C:/Users/user/Desktop/ostad/ostadclass/lead-udemy/public/course/raihana.mp4" //we will receive the path from front end to delete
+    unlinkSync(req.body.video);    
+    // unlinkSync(path);    
+    res.status(200).json({
+      status:"Success",
+      message:"Video delete success"
+    })
   } catch (err) {
-    console.log(err);
+    res.status(400).json({
+      status:"Fail",
+      message:err.message
+    })
   }
 };
 

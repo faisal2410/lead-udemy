@@ -1,6 +1,4 @@
 const express =require("express");
-const formidable =require("express-formidable");
-
 const router = express.Router();
 
 // middleware
@@ -43,8 +41,7 @@ router.put("/course/:slug", verifyToken, update);
 router.get("/course/:slug", read);
 router.post(
   "/course/video-upload/:instructorId",
-  verifyToken,
-  formidable(),
+  verifyToken, 
   uploadVideo
 );
 router.post("/course/video-remove/:instructorId", verifyToken, removeVideo);
