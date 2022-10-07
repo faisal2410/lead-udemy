@@ -79,7 +79,11 @@ const userSchema = new Schema(
     confirmationTokenExpires: Date,
     passwordChangedAt: Date,
     passwordResetToken: String,
-    passwordResetExpires: Date,   
+    passwordResetExpires: Date,
+    payment_status:{
+      type: Boolean,
+      default: false
+    },   
     courses: [{ type: ObjectId, ref: "Course" }],
   },
   { timestamps: true }

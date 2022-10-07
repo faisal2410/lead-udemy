@@ -213,10 +213,11 @@ exports.removeVideo = async (req, res) => {
 
 exports.addLesson = async (req, res) => {
   try {
+    const user=await findUserByEmail(req.user.email);
     const { slug, instructorId } = req.params;
     const { title, content, video } = req.body;
 
-    if (req.user._id != instructorId) {
+    if (user._id != instructorId) {
       return res.status(400).send("Unauthorized");
     }
 
@@ -261,28 +262,41 @@ exports.update = async (req, res) => {
 };
 
 exports.removeLesson = async (req, res) => {
+  const user=await findUserByEmail(req.user.email);
   const { slug, lessonId } = req.params;
   const course = await Course.findOne({ slug }).exec();
-  if (req.user._id != course.instructor) {
-    return res.status(400).send("Unauthorized");
+  if (String(user._id) != String(course.instructor)) {
+    return res.status(400).json({
+      status:"Fail",
+      message:"Unauthorized"
+    });
   }
 
   const deletedCourse = await Course.findByIdAndUpdate(course._id, {
     $pull: { lessons: { _id: lessonId } },
   }).exec();
 
-  res.json({ ok: true });
+  res.status(200).json({ 
+    status:"success",
+    message: "lesson removed successfully" });
 };
 
 exports.updateLesson = async (req, res) => {
   try {
+    const user=await findUserByEmail(req.user.email);
     // console.log("UPDATE LESSON", req.body);
     const { slug } = req.params;
     const { _id, title, content, video, free_preview } = req.body;
+    // console.log("lesson id",_id)
     const course = await Course.findOne({ slug }).select("instructor").exec();
+    // console.log("course instructor",course.instructor._id)
+    // console.log("user id",user._id)
 
-    if (course.instructor._id != req.user._id) {
-      return res.status(400).send("Unauthorized");
+    if (String(course.instructor._id) != String(user._id)) {
+      return res.status(400).json({
+        status:"Fail",
+        message:"Unauthorized"
+      });
     }
 
     const updated = await Course.updateOne(
@@ -297,21 +311,30 @@ exports.updateLesson = async (req, res) => {
       },
       { new: true }
     ).exec();
-    // console.log("updated", updated);
-    res.json({ ok: true });
+    console.log("updated", updated);
+    res.status(200).json({ 
+      status:"success",
+      message: "Lesson updated Successfully" 
+    });
   } catch (err) {
     console.log(err);
-    return res.status(400).send("Update lesson failed");
+    return res.status(400).json({
+      status:"Fail",
+      message:"Update lesson failed"
+    });
   }
 };
 
 exports.publishCourse = async (req, res) => {
   try {
+    const user=await findUserByEmail(req.user.email);
     const { courseId } = req.params;
     const course = await Course.findById(courseId).select("instructor").exec();
 
-    if (course.instructor._id != req.user._id) {
-      return res.status(400).send("Unauthorized");
+    if (String(course.instructor._id) != String(user._id)) {
+      return res.status(400).json({
+        status:"success",
+        message:"Unauthorized"});
     }
 
     const updated = await Course.findByIdAndUpdate(
@@ -319,20 +342,31 @@ exports.publishCourse = async (req, res) => {
       { published: true },
       { new: true }
     ).exec();
-    res.json(updated);
+    res.status(200).json({
+      status:"success",
+      message:"Course Published Successfully",
+      updated
+    });
   } catch (err) {
-    console.log(err);
-    return res.status(400).send("Publish course failed");
+    console.log(err.message);
+    return res.status(400).json({
+      staus:"Fail",
+      message:"Course Publish failed"
+    });
   }
 };
 
 exports.unpublishCourse = async (req, res) => {
   try {
+    const user=await findUserByEmail(req.user.email);
     const { courseId } = req.params;
     const course = await Course.findById(courseId).select("instructor").exec();
 
-    if (course.instructor._id != req.user._id) {
-      return res.status(400).send("Unauthorized");
+    if (String(course.instructor._id) != String(user._id)) {
+      return res.status(400).json({
+        status:"Fail",
+        message:"Unauthorized"
+      });
     }
 
     const updated = await Course.findByIdAndUpdate(
@@ -340,15 +374,23 @@ exports.unpublishCourse = async (req, res) => {
       { published: false },
       { new: true }
     ).exec();
-    res.json(updated);
+    res.status(200).json({
+      status:"success",
+      message:"Course Unpublished successfully",
+      updated
+    });
   } catch (err) {
-    console.log(err);
-    return res.status(400).send("Unpublish course failed");
+    console.log(err.message);
+    return res.status(400).json({
+      status:"Fail",
+      message:"Unpublish course failed"
+    });
   }
 };
 
 exports.courses = async (req, res) => {
-  const all = await Course.find({ published: false })
+  // const all = await Course.find({ published: false })
+  const all = await Course.find({ published: true })
     .populate("instructor", "_id name")
     .exec();
   res.json(all);
@@ -371,102 +413,44 @@ exports.checkEnrollment = async (req, res) => {
 };
 
 exports.freeEnrollment = async (req, res) => {
+  const user=await findUserByEmail(req.user.email); 
   try {
     // check if course is free or paid
     const course = await Course.findById(req.params.courseId).exec();
-    if (course.paid) return;
+    if (course.paid){
+      res.status(400).json({
+        status:"Fail",
+        message:"This is a paid course. Free enrollment is not allowed"
+      })
+      }else{
+        const result = await User.findByIdAndUpdate(
+          user._id,
+          {
+            $addToSet: { courses: course._id },
+          },
+          { new: true }
+        ).exec();
+       
+        res.status(200).json({
+          message: "Congratulations! You have successfully enrolled",
+          course,
+        });
 
-    const result = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        $addToSet: { courses: course._id },
-      },
-      { new: true }
-    ).exec();
-    console.log(result);
-    res.json({
-      message: "Congratulations! You have successfully enrolled",
-      course,
+      };
+  } catch (err) {
+    // console.log("free enrollment err", err);
+    return res.status(400).json({
+      status:"Fail",
+      message:"Free Enrollment in the course failed"
     });
-  } catch (err) {
-    console.log("free enrollment err", err);
-    return res.status(400).send("Enrollment create failed");
   }
 };
 
-exports.paidEnrollment = async (req, res) => {
-  try {
-    // check if course is free or paid
-    const course = await Course.findById(req.params.courseId)
-      .populate("instructor")
-      .exec();
-    if (!course.paid) return;
-    // application fee 30%
-    const fee = (course.price * 30) / 100;
-    // create stripe session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      // purchase details
-      line_items: [
-        {
-          name: course.name,
-          amount: Math.round(course.price.toFixed(2) * 100),
-          currency: "usd",
-          quantity: 1,
-        },
-      ],
-      // charge buyer and transfer remaining balance to seller (after fee)
-      payment_intent_data: {
-        application_fee_amount: Math.round(fee.toFixed(2) * 100),
-        transfer_data: {
-          destination: course.instructor.stripe_account_id,
-        },
-      },
-      // redirect url after successful payment
-      success_url: `${process.env.STRIPE_SUCCESS_URL}/${course._id}`,
-      cancel_url: process.env.STRIPE_CANCEL_URL,
-    });
-    console.log("SESSION ID => ", session);
 
-    await User.findByIdAndUpdate(req.user._id, {
-      stripeSession: session,
-    }).exec();
-    res.send(session.id);
-  } catch (err) {
-    console.log("PAID ENROLLMENT ERR", err);
-    return res.status(400).send("Enrollment create failed");
-  }
-};
-
-exports.stripeSuccess = async (req, res) => {
-  try {
-    // find course
-    const course = await Course.findById(req.params.courseId).exec();
-    // get user from db to get stripe session id
-    const user = await User.findById(req.user._id).exec();
-    // if no stripe session return
-    if (!user.stripeSession.id) return res.sendStatus(400);
-    // retrieve stripe session
-    const session = await stripe.checkout.sessions.retrieve(
-      user.stripeSession.id
-    );
-    console.log("STRIPE SUCCESS", session);
-    // if session payment status is paid, push course to user's course []
-    if (session.payment_status === "paid") {
-      await User.findByIdAndUpdate(user._id, {
-        $addToSet: { courses: course._id },
-        $set: { stripeSession: {} },
-      }).exec();
-    }
-    res.json({ success: true, course });
-  } catch (err) {
-    console.log("STRIPE SUCCESS ERR", err);
-    res.json({ success: false });
-  }
-};
 
 exports.userCourses = async (req, res) => {
-  const user = await User.findById(req.user._id).exec();
+  const user=await findUserByEmail(req.user.email);
+  // const user = await User.findById(req.user._id).exec();
   const courses = await Course.find({ _id: { $in: user.courses } })
     .populate("instructor", "_id name")
     .exec();
@@ -537,24 +521,70 @@ exports.markIncomplete = async (req, res) => {
 };
 
 
-exports.enrollmentWithoutStripe = async (req, res) => {
+exports.paidEnrollment = async (req, res) => {
   try {
+    const payment_status=req.body.payment_status;
+    const user=await findUserByEmail(req.user.email)
     const course = await Course.findById(req.params.courseId).exec();
- 
-    const result = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        $addToSet: { courses: course._id },
-      },
-      { new: true }
-    ).exec();
-    console.log(result);
-    res.json({
-      message: "Congratulations! You have successfully enrolled",
-      course,
-    });
+    if( payment_status===true){
+      const result = await User.findByIdAndUpdate(
+        user._id,
+        {
+          $addToSet: { courses: course._id },
+        },
+        { new: true }
+      ).exec();
+      console.log(result);
+      res.json({
+        message: "Congratulations! You have successfully enrolled.Course",
+        course,
+      });
+    }else{     
+      res.json({
+        message: "Congratulations! You have successfully enrolled.Course will be activated with in 24 hours after payment verification",
+        course,
+      });
+    }
+   
   } catch (err) {
     console.log("free enrollment err", err);
-    return res.status(400).send("Enrollment create failed");
+    return res.status(400).send("Enrollment  failed.Try again");
   }
 };
+
+exports.activateCourse=async(req,res)=>{
+  
+  try {
+    const { courseId,userId } = req.params;
+    const payment_status=req.body.payment_status;
+   
+    const course = await Course.findById(courseId).exec();
+    if( payment_status===true){
+      const result = await User.findByIdAndUpdate(
+        userId,
+        {
+          $addToSet: { courses: course._id },
+        },
+        { new: true }
+      ).exec();
+      console.log("test active course=======>",result);
+      res.json({
+        message: "Course is added to the requested userid",
+        course,
+      });
+    }else{     
+      res.status(400).json({
+        status:"Fail",
+        message: "Course is not added to the requested userid",
+        
+      });
+    }
+   
+  } catch (err) {
+  
+    return res.status(400).json({
+      status:"Fail",
+      message:err.message
+    });
+  }
+}

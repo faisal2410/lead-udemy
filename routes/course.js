@@ -3,7 +3,7 @@ const router = express.Router();
 
 // middleware
 const {verifyToken} =require("../middlewares/auth");
-const {isInstructor, isEnrolled } =require("../middlewares/authorization");
+const {isInstructor, isEnrolled,isAdmin } =require("../middlewares/authorization");
 
 // controllers
 const {
@@ -28,7 +28,7 @@ const {
   markCompleted,
   listCompleted,
   markIncomplete,
-  enrollmentWithoutStripe
+  activateCourse
 } =require("../controllers/course");
 
 router.get("/courses", courses);
@@ -59,9 +59,9 @@ router.get("/check-enrollment/:courseId", verifyToken, checkEnrollment);
 
 // enrollment
 router.post("/free-enrollment/:courseId", verifyToken, freeEnrollment);
-// router.post("/paid-enrollment/:courseId", verifyToken, paidEnrollment);
-router.post("/enrollmentWithoutStripe/:courseId", verifyToken, enrollmentWithoutStripe);
-// router.get("/stripe-success/:courseId", verifyToken, stripeSuccess);
+router.post("/paid-enrollment/:courseId", verifyToken, paidEnrollment);
+router.put("/activate-course/:courseId/:userId",verifyToken,isAdmin,activateCourse)
+
 
 router.get("/user-courses", verifyToken, userCourses);
 router.get("/user/course/:slug", verifyToken, isEnrolled, read);

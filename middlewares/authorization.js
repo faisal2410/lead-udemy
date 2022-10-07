@@ -1,5 +1,5 @@
 
-const { findUserById,findUserByCourseSlug,findOneService,findUserByRole } = require("../services/auth");
+const { findUserById,findUserByCourseSlug,findUserByEmail,findOneService,findUserByRole } = require("../services/auth");
 
 exports.isAdmin = async (req, res, next) => {
   // console.log(req.user.role)
@@ -38,7 +38,7 @@ exports.isInstructor = async (req, res, next) => {
 
 exports.isEnrolled = async (req, res, next) => {
   try {
-    const user = await findUserById(req.user._id);
+    const user = await findUserByEmail(req.user.email);
     const course = await findUserByCourseSlug({ slug: req.params.slug })
 
     // check if course id is found in user courses array
