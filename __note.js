@@ -20,14 +20,9 @@
     return res.status(400).send("Enrollment create failed");
   }
 };
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
+ 
+ * */ 
+/**
+ * Note : all routes completed according ryan dhungel. But reset password and forget password controller will be done after merncms done
  * 
  * */ 
