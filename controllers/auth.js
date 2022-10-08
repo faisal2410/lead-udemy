@@ -132,7 +132,7 @@ exports.forgotPassword = async (req, res) => {
                   <h1>Reset password</h1>
                   <p>User this code to reset your password</p>
                   <h2 style="color:red;">${shortCode}</h2>
-                  <i>edemy.com</i>
+                  <i>leadeducare.com</i>
                 </html>
               `,
           },

@@ -1,8 +1,7 @@
-const{ uid } =require("uid");
 const Course =require("../models/course");
 const Completed =require("../models/completed");
 const slugify =require("slugify");
-const { readFileSync,unlinkSync }=require("fs");
+const { unlinkSync }=require("fs");
 const User =require("../models/user");
 const multer = require('multer');
 const { findUserByEmail } = require("../services/auth");
@@ -87,9 +86,8 @@ exports.create = async (req, res) => {
   // console.log("CREATE COURSE", req.body);
   // return;
   try {
-    const alreadyExist = await Course.findOne({
-      slug: slugify(req.body.name.toLowerCase()),
-    });
+    const slug= slugify(req.body.name.toLowerCase())
+    const alreadyExist = await findCourseBySlug(slug);
     if (alreadyExist) return res.status(400).send("Title is taken");
 
     const course = await new Course({
@@ -458,11 +456,12 @@ exports.userCourses = async (req, res) => {
 };
 
 exports.markCompleted = async (req, res) => {
+  const user=await findUserByEmail(req.user.email);
   const { courseId, lessonId } = req.body;
   // console.log(courseId, lessonId);
   // find if user with that course is already created
   const existing = await Completed.findOne({
-    user: req.user._id,
+    user: user._id,
     course: courseId,
   }).exec();
 
@@ -470,53 +469,69 @@ exports.markCompleted = async (req, res) => {
     // update
     const updated = await Completed.findOneAndUpdate(
       {
-        user: req.user._id,
+        user:user._id,
         course: courseId,
       },
       {
         $addToSet: { lessons: lessonId },
       }
     ).exec();
-    res.json({ ok: true });
+    res.status(200).json({
+      status:"success",
+      message: `${lessonId} is successfully marked-completed`
+     });
   } else {
     // create
     const created = await new Completed({
-      user: req.user._id,
+      user: user._id,
       course: courseId,
       lessons: lessonId,
     }).save();
-    res.json({ ok: true });
+    res.status(200).json({
+      status:"success",
+      message: `${lessonId} is successfully marked-completed`
+     });
   }
 };
 
 exports.listCompleted = async (req, res) => {
   try {
+    const user=await findUserByEmail(req.user.email);
     const list = await Completed.findOne({
-      user: req.user._id,
+      user: user._id,
       course: req.body.courseId,
     }).exec();
     list && res.json(list.lessons);
   } catch (err) {
-    console.log(err);
+    res.status(400).json({
+      status:"Fail",
+      message:err.message
+    })
   }
 };
 
 exports.markIncomplete = async (req, res) => {
   try {
+    const user=await findUserByEmail(req.user.email);
     const { courseId, lessonId } = req.body;
 
     const updated = await Completed.findOneAndUpdate(
       {
-        user: req.user._id,
+        user: user._id,
         course: courseId,
       },
       {
         $pull: { lessons: lessonId },
       }
     ).exec();
-    res.json({ ok: true });
+    res.status(200).json({
+      status:"success",
+      message: `${lessonId} is successfully marked as incomplete` });
   } catch (err) {
-    console.log(err);
+    res.status(400).json({
+      status:"Fail",
+      message:err.message
+    })
   }
 };
 
