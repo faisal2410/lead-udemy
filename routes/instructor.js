@@ -3,9 +3,7 @@ const express =require("express");
 const router = express.Router();
 
 // middleware
-const {verifyToken} =require("../middlewares/auth");
-const { isAdmin } = require("../middlewares/authorization");
-
+const { requireSignin,isAdmin } = require("../middlewares/authorization");
 // controllers
 const {
   makeInstructor, 
@@ -15,12 +13,12 @@ const {
   
 } =require("../controllers/instructor");
 
-router.post("/make-instructor/:id",verifyToken,isAdmin, makeInstructor);
-router.get("/current-instructor", verifyToken, currentInstructor);
+router.post("/make-instructor/:id",requireSignin,isAdmin, makeInstructor);
+router.get("/current-instructor", requireSignin, currentInstructor);
 
-router.get("/instructor-courses", verifyToken, instructorCourses);
+router.get("/instructor-courses", requireSignin, instructorCourses);
 
-router.post("/instructor/student-count", verifyToken, studentCount);
+router.post("/instructor/student-count", requireSignin, studentCount);
 
 
 

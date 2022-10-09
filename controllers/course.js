@@ -4,7 +4,7 @@ const slugify =require("slugify");
 const { unlinkSync }=require("fs");
 const User =require("../models/user");
 const multer = require('multer');
-const { findUserByEmail } = require("../services/auth");
+const { findUserByEmail,findUserById } = require("../services/auth");
 const { findCourseBySlug } = require("../services/course");
 
 exports.uploadImage = async (req, res) => {
@@ -92,7 +92,7 @@ exports.create = async (req, res) => {
 
     const course = await new Course({
       slug: slugify(req.body.name),
-      instructor: req.user._id,
+      instructor: req.auth._id,
       ...req.body,
     }).save();
 
@@ -118,7 +118,7 @@ exports.uploadVideo = async (req, res) => {
   try {
     // console.log("req.user.email", req.user.email);
     // console.log("req.params.instructorId", req.params.instructorId);
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     // console.log("user id====>",user._id)
     
     if (user._id != req.params.instructorId) {
@@ -183,7 +183,7 @@ exports.removeVideo = async (req, res) => {
   try {
     // console.log("req.user.email", req.user.email);
     // console.log("req.params.instructorId", req.params.instructorId);
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     // console.log("user id====>",user._id)
     
     if (user._id != req.params.instructorId) {
@@ -211,7 +211,7 @@ exports.removeVideo = async (req, res) => {
 
 exports.addLesson = async (req, res) => {
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     const { slug, instructorId } = req.params;
     const { title, content, video } = req.body;
 
@@ -238,7 +238,7 @@ exports.addLesson = async (req, res) => {
 exports.update = async (req, res) => {
 
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     
     const { slug } = req.params;
     console.log(slug);
@@ -260,7 +260,7 @@ exports.update = async (req, res) => {
 };
 
 exports.removeLesson = async (req, res) => {
-  const user=await findUserByEmail(req.user.email);
+  const user=await findUserById(req.auth._id);
   const { slug, lessonId } = req.params;
   const course = await Course.findOne({ slug }).exec();
   if (String(user._id) != String(course.instructor)) {
@@ -281,7 +281,7 @@ exports.removeLesson = async (req, res) => {
 
 exports.updateLesson = async (req, res) => {
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     // console.log("UPDATE LESSON", req.body);
     const { slug } = req.params;
     const { _id, title, content, video, free_preview } = req.body;
@@ -325,7 +325,7 @@ exports.updateLesson = async (req, res) => {
 
 exports.publishCourse = async (req, res) => {
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     const { courseId } = req.params;
     const course = await Course.findById(courseId).select("instructor").exec();
 
@@ -356,7 +356,7 @@ exports.publishCourse = async (req, res) => {
 
 exports.unpublishCourse = async (req, res) => {
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     const { courseId } = req.params;
     const course = await Course.findById(courseId).select("instructor").exec();
 
@@ -397,7 +397,7 @@ exports.courses = async (req, res) => {
 exports.checkEnrollment = async (req, res) => {
   const { courseId } = req.params;
   // find courses of the currently logged in user
-  const user = await User.findById(req.user._id).exec();
+  const user = await findUserById(req.auth._id);
   // check if course id is found in user courses array
   let ids = [];
   let length = user.courses && user.courses.length;
@@ -411,7 +411,7 @@ exports.checkEnrollment = async (req, res) => {
 };
 
 exports.freeEnrollment = async (req, res) => {
-  const user=await findUserByEmail(req.user.email); 
+  const user=await findUserById(req.auth._id); 
   try {
     // check if course is free or paid
     const course = await Course.findById(req.params.courseId).exec();
@@ -447,7 +447,7 @@ exports.freeEnrollment = async (req, res) => {
 
 
 exports.userCourses = async (req, res) => {
-  const user=await findUserByEmail(req.user.email);
+  const user=await findUserById(req.auth._id);
   // const user = await User.findById(req.user._id).exec();
   const courses = await Course.find({ _id: { $in: user.courses } })
     .populate("instructor", "_id name")
@@ -456,7 +456,7 @@ exports.userCourses = async (req, res) => {
 };
 
 exports.markCompleted = async (req, res) => {
-  const user=await findUserByEmail(req.user.email);
+  const user=await findUserById(req.auth._id);
   const { courseId, lessonId } = req.body;
   // console.log(courseId, lessonId);
   // find if user with that course is already created
@@ -496,7 +496,7 @@ exports.markCompleted = async (req, res) => {
 
 exports.listCompleted = async (req, res) => {
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     const list = await Completed.findOne({
       user: user._id,
       course: req.body.courseId,
@@ -512,7 +512,7 @@ exports.listCompleted = async (req, res) => {
 
 exports.markIncomplete = async (req, res) => {
   try {
-    const user=await findUserByEmail(req.user.email);
+    const user=await findUserById(req.auth._id);
     const { courseId, lessonId } = req.body;
 
     const updated = await Completed.findOneAndUpdate(
@@ -539,7 +539,7 @@ exports.markIncomplete = async (req, res) => {
 exports.paidEnrollment = async (req, res) => {
   try {
     const payment_status=req.body.payment_status;
-    const user=await findUserByEmail(req.user.email)
+    const user=await findUserById(req.auth._id)
     const course = await Course.findById(req.params.courseId).exec();
     if( payment_status===true){
       const result = await User.findByIdAndUpdate(

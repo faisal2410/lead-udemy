@@ -1,7 +1,7 @@
 const User =require("../models/user");
 const Course =require("../models/course");
 const queryString =require("query-string");
-const { findUserByRole } = require("../services/auth");
+const { findUserById } = require("../services/auth");
 
 
 exports.makeInstructor = async (req, res) => {
@@ -44,12 +44,13 @@ exports.getAccountStatus = async (req, res) => {
 };
 
 exports.currentInstructor = async (req, res) => {
+  console.log(req.auth._id)
   try {
-    let user = await findUserByRole({role:req.user.role});
+    let user = await findUserById(req.auth._id);
     // let user = await findUserByRole({role:req.user.role}).select("-password").exec();
-    console.log("CURRENT INSTRUCTOR => ", user);
-    const test=!user.role.includes("instructor")&&!user.role.includes("admin")
-    console.log("we are testing======>",test)
+    // console.log("CURRENT INSTRUCTOR => ", user);
+    // const test=!user.role.includes("instructor")&&!user.role.includes("admin")
+    // console.log("we are testing======>",test)
     if (!user.role.includes("instructor")&&!user.role.includes("admin")) {
       return res.status(403).json({
         status:"Fail",
@@ -59,7 +60,7 @@ exports.currentInstructor = async (req, res) => {
       res.json({ ok: true });
     }
   } catch (err) {
-    // console.log(err);
+    console.log(err);
     res.status(403).json({
       status:"Fail",
       message:"Access Denied. Instructor Resources"
@@ -69,7 +70,7 @@ exports.currentInstructor = async (req, res) => {
 
 exports.instructorCourses = async (req, res) => {
   try {
-    const courses = await Course.find({ instructor: req.user._id })
+    const courses = await Course.find({ instructor: req.auth._id })
       .sort({ createdAt: -1 })
       .exec();
     res.json(courses);

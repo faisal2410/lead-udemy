@@ -1,10 +1,17 @@
-
+const {expressjwt} =require("express-jwt");
+require("dotenv").config();
 const { findUserById,findUserByCourseSlug,findUserByEmail,findOneService,findUserByRole } = require("../services/auth");
 
+// req.user = _id
+exports.requireSignin = expressjwt({
+  secret: process.env.JWT_SECRET,
+  algorithms: ["HS256"],
+});
+
 exports.isAdmin = async (req, res, next) => {
-  // console.log(req.user.role)
+  console.log(req.auth)
   try {
-    const user = await findUserByRole({role:req.user.role});  
+    const user = await findUserById(req.auth._id);  
     // console.log(user)
     if (!user.role.includes("admin")) {
       return res.status(403).json({
@@ -21,7 +28,7 @@ exports.isAdmin = async (req, res, next) => {
 
 exports.isInstructor = async (req, res, next) => {
   try {
-    const user = await findUserByRole({role:req.user.role});
+    const user = await findUserById(req.auth._id);
     if (!user.role.includes("instructor")) {
       return res.status(403).json({
         status:"Fail",
@@ -38,7 +45,7 @@ exports.isInstructor = async (req, res, next) => {
 
 exports.isEnrolled = async (req, res, next) => {
   try {
-    const user = await findUserByEmail(req.user.email);
+    const user = await findUserById(req.auth._id);
     const course = await findUserByCourseSlug({ slug: req.params.slug })
 
     // check if course id is found in user courses array
